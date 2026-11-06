@@ -153,27 +153,27 @@ def integration(log=lambda message: None):
 
     # Usar rutas absolutas en Exec e Icon: los archivos .desktop no expanden $HOME.
     desktop_entry = (
-        "[Desktop Entry]\\n"
-        "Version=1.0\\n"
-        "Type=Application\\n"
-        "Name=Visual Studio Code\\n"
-        "Name[es]=Visual Studio Code\\n"
-        "GenericName=Source Code Editor\\n"
-        "GenericName[es]=Editor de código fuente\\n"
-        "Comment=Editor de código\\n"
-        "Comment[es]=Editor de código\\n"
-        'Exec="' + str(executable) + '" --reuse-window %F\\n'
-        'TryExec="' + str(executable) + '"\\n'
-        "Icon=" + icon_value + "\\n"
-        "Terminal=false\\n"
-        "StartupNotify=true\\n"
-        "StartupWMClass=Code\\n"
-        "DBusActivatable=false\\n"
-        "NoDisplay=false\\n"
-        "Hidden=false\\n"
-        "Categories=Development;IDE;TextEditor;\\n"
-        "Keywords=programacion;desarrollo;editor;codigo;code;\\n"
-        "MimeType=text/plain;application/x-code-workspace;\\n"
+        "[Desktop Entry]\n"
+        "Version=1.0\n"
+        "Type=Application\n"
+        "Name=Visual Studio Code\n"
+        "Name[es]=Visual Studio Code\n"
+        "GenericName=Source Code Editor\n"
+        "GenericName[es]=Editor de código fuente\n"
+        "Comment=Editor de código\n"
+        "Comment[es]=Editor de código\n"
+        'Exec="' + str(executable) + '" --reuse-window %F\n'
+        'TryExec="' + str(executable) + '"\n'
+        "Icon=" + icon_value + "\n"
+        "Terminal=false\n"
+        "StartupNotify=true\n"
+        "StartupWMClass=Code\n"
+        "DBusActivatable=false\n"
+        "NoDisplay=false\n"
+        "Hidden=false\n"
+        "Categories=Development;IDE;TextEditor;\n"
+        "Keywords=programacion;desarrollo;editor;codigo;code;\n"
+        "MimeType=text/plain;application/x-code-workspace;\n"
     )
     _atomic_write(MENU, desktop_entry, 0o755)
 
