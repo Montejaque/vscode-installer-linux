@@ -16,21 +16,16 @@ from tkinter import ttk, messagebox
 
 HOME = Path.home()
 ROOT = HOME / ".local"
-# Respetar XDG_DATA_HOME: GNOME/Ubuntu solo indexa esa carpeta cuando está definida.
-_xdg_data_home = Path(os.environ.get("XDG_DATA_HOME", str(ROOT / "share"))).expanduser()
-if not _xdg_data_home.is_absolute():
-    _xdg_data_home = ROOT / "share"
-DATA_HOME = _xdg_data_home
+# Ubicaciones fijas de usuario: método sencillo y compatible con Ubuntu/GNOME.
+# No heredamos XDG_DATA_HOME del proceso AppImage, que puede diferir de la sesión.
+DATA_HOME = ROOT / "share"
 APPLICATIONS_DIR = DATA_HOME / "applications"
-# Mantener también la ruta estándar de Ubuntu por si el proceso AppImage
-# hereda un XDG_DATA_HOME distinto al de la sesión gráfica.
-STANDARD_APPLICATIONS_DIR = ROOT / "share" / "applications"
 ICONS_DIR = DATA_HOME / "icons"
-STANDARD_ICONS_DIR = ROOT / "share" / "icons"
 DEST = ROOT / "opt" / "vscode"
 BIN = ROOT / "bin" / "code"
 MENU = APPLICATIONS_DIR / "visual-studio-code.desktop"
-STANDARD_MENU = STANDARD_APPLICATIONS_DIR / "visual-studio-code.desktop"
+STANDARD_MENU = MENU
+STANDARD_ICONS_DIR = ICONS_DIR
 URL = "https://update.code.visualstudio.com/latest/linux-x64/stable"
 
 def read_version(binary):
@@ -103,8 +98,8 @@ def _atomic_write(path, content, mode=0o644):
 
 def _refresh_desktop_caches():
     """Actualiza índices de menú/iconos si el escritorio ofrece esas herramientas."""
-    menu_dirs = {MENU.parent, STANDARD_MENU.parent}
-    icon_dirs = {ICONS_DIR / "hicolor", STANDARD_ICONS_DIR / "hicolor"}
+    menu_dirs = {APPLICATIONS_DIR}
+    icon_dirs = {ICONS_DIR / "hicolor"}
     commands = ([["update-desktop-database", str(directory)] for directory in menu_dirs]
                 + [["gtk-update-icon-cache", "-f", "-t", str(directory)] for directory in icon_dirs])
     for command in commands:
@@ -180,8 +175,8 @@ def integration(log=lambda message: None):
         "Keywords=programacion;desarrollo;editor;codigo;code;\n"
         "MimeType=text/plain;application/x-code-workspace;\n"
     )
-    # Crear la entrada tanto en XDG_DATA_HOME como en la ruta estándar Ubuntu.
-    menu_paths = list(dict.fromkeys((MENU, STANDARD_MENU)))
+    # Una sola entrada, en la ubicación de aplicaciones que Ubuntu indexa por usuario.
+    menu_paths = [MENU]
     for menu_path in menu_paths:
         _atomic_write(menu_path, desktop_entry, 0o755)
         log("Entrada de menú creada: " + str(menu_path))
@@ -229,6 +224,8 @@ def integration(log=lambda message: None):
             raise RuntimeError("El acceso del menú no contiene el campo requerido: " + required)
     if not executable.is_file() or not os.access(executable, os.X_OK):
         raise RuntimeError("El ejecutable indicado por el acceso del menú no está disponible.")
+    if icon_value.startswith("/") and not Path(icon_value).is_file():
+        raise RuntimeError("El icono indicado por el acceso del menú no existe: " + icon_value)
 
     marker = "# VSCode Installer user PATH"
     profile = HOME / ".profile"
@@ -249,11 +246,13 @@ def integration(log=lambda message: None):
     else:
         log("Aviso: update-desktop-database no está instalado; las entradas quedan creadas.")
 
+    _refresh_desktop_caches()
     for menu_path in menu_paths:
         if not menu_path.is_file() or menu_path.stat().st_size == 0:
             raise RuntimeError("No se ha creado el acceso de Visual Studio Code: " + str(menu_path))
         log("Acceso del menú creado y verificado: " + str(menu_path))
     log("Acceso directo de terminal creado: " + str(BIN))
+    log("Ubicación única del menú: " + str(MENU))
 
 def install(log, progress):
     if sys.platform != "linux" or os.uname().machine not in ("x86_64", "amd64"):
