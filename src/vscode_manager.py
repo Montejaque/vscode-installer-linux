@@ -20,17 +20,47 @@ BIN = ROOT / "bin" / "code"
 MENU = ROOT / "share" / "applications" / "visual-studio-code.desktop"
 URL = "https://update.code.visualstudio.com/latest/linux-x64/stable"
 
-def version():
-    binary = DEST / "code"
-    if not binary.is_file():
-        return None
+def read_version(binary):
     try:
         result = subprocess.run([str(binary), "--version"], capture_output=True,
                                 text=True, timeout=20)
-        match = re.search(r"(?m)^\d+\.\d+\.\d+", result.stdout)
+        match = re.search(r"(?m)^\\d+\\.\\d+\\.\\d+", result.stdout)
         return match.group() if match else None
     except (OSError, subprocess.TimeoutExpired):
         return None
+
+def version():
+    """Versión de la copia administrada por esta aplicación."""
+    binary = DEST / "code"
+    return read_version(binary) if binary.is_file() else None
+
+def detect_installed():
+    """Detecta VS Code instalado por apt, snap, manualmente o por esta app."""
+    candidates = [
+        DEST / "code",
+        Path("/usr/share/code/code"),
+        Path("/usr/lib/code/code"),
+        Path("/opt/visual-studio-code/code"),
+        Path("/snap/bin/code"),
+        Path("/usr/bin/code"),
+        BIN,
+    ]
+    path_code = shutil.which("code")
+    if path_code:
+        candidates.append(Path(path_code))
+    seen = set()
+    for binary in candidates:
+        try:
+            resolved = binary.resolve()
+        except OSError:
+            continue
+        if str(resolved) in seen or not resolved.is_file():
+            continue
+        seen.add(str(resolved))
+        detected = read_version(resolved)
+        if detected:
+            return detected, str(binary)
+    return None, None
 
 def integration():
     BIN.parent.mkdir(parents=True, exist_ok=True)
@@ -161,7 +191,12 @@ class App(tk.Tk):
                                self.log_area.see("end")))
 
     def refresh(self):
-        self.status.config(text="Versión instalada: " + (version() or "no detectada"))
+        detected, location = detect_installed()
+        if detected:
+            managed = " (gestionada aquí)" if location == str(DEST / "code") else " (instalación existente)"
+            self.status.config(text=f"VS Code detectado: {detected}{managed} · {location}")
+        else:
+            self.status.config(text="VS Code no detectado en las ubicaciones habituales")
 
     def repair(self):
         if not (DEST / "code").exists():
