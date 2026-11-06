@@ -33,6 +33,7 @@ jobs:
             test -s dist/vscode-installer-updater
             file dist/vscode-installer-updater
           '
+          sudo chown -R "$(id -u):$(id -g)" dist AppDir
 
       - name: Prepare AppDir
         run: |
