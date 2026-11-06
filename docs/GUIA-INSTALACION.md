@@ -142,3 +142,8 @@ Identidad visual: negro `#000000` y amarillo `#F3D54E`.
 ## Icono en el menú de Programación
 
 Al instalar o pulsar «Reparar acceso», el gestor copia el icono PNG incluido en el paquete de VS Code a `~/.local/share/icons/hicolor/256x256/apps/visual-studio-code.png`. La entrada del menú utiliza esa ruta absoluta y declara la categoría `Development` (Programación). Después actualiza, cuando están disponibles, las cachés de aplicaciones e iconos del usuario. No requiere permisos de administrador.
+
+
+## Comprobar versión
+
+El botón «Comprobar versión» busca VS Code en la instalación gestionada por el programa y en las ubicaciones habituales de Linux. Muestra un aviso con el número de versión y la ruta del ejecutable encontrado; si no encuentra ninguna instalación, informa de ello y permite continuar con «Instalar / actualizar». Durante la comprobación también deja el resultado en el registro de la ventana.
