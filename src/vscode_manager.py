@@ -87,7 +87,7 @@ def install(log):
                     target = PurePosixPath(member.linkname)
                     if target.is_absolute() or ".." in target.parts:
                         raise RuntimeError("Enlace no seguro en el archivo.")
-            tar.extractall(extracted, members=members, filter="data")
+            tar.extractall(extracted, members=members)
         candidates = [p for p in extracted.iterdir() if p.is_dir() and (p / "code").is_file()]
         if not candidates:
             raise RuntimeError("No se encontró el ejecutable de VS Code.")
