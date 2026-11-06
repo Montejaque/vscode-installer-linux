@@ -1,0 +1,3 @@
+#!/bin/sh
+HERE="$(dirname "$(readlink -f "$0")")"
+exec python3 "$HERE/usr/share/vscode-installer-updater/src/vscode_manager.py" "$@"
