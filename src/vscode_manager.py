@@ -326,7 +326,8 @@ class App(tk.Tk):
         self.buttons = []
         for label, action in [("Instalar / actualizar", self.start),
                               ("Comprobar versión", self.refresh),
-                              ("Reparar acceso", self.repair),\n                              ("Desinstalar y eliminar datos", self.uninstall)]:
+                              ("Reparar acceso", self.repair),
+                              ("Desinstalar y eliminar datos", self.uninstall)]:
             button = ttk.Button(bar, text=label, command=action)
             button.pack(side="left", padx=(0, 12))
             self.buttons.append(button)
