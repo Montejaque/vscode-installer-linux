@@ -402,7 +402,7 @@ Correo: montejaque@puntosvuela.es
             messagebox.showwarning("Sin instalación", "Primero instala VS Code.")
             return
         try:
-            integration()
+            integration(self.log)
             messagebox.showinfo("Correcto", "Acceso del menú reparado.")
         except Exception as exc:
             messagebox.showerror("Error", str(exc))
@@ -412,11 +412,11 @@ Correo: montejaque@puntosvuela.es
             return
         warning = (
             "Se eliminará la instalación de VS Code gestionada por esta aplicación y TODOS "
-            "sus datos de usuario: preferencias, perfiles, extensiones y caché.\\n\\n"
+            "sus datos de usuario: preferencias, perfiles, extensiones y caché.\n\n"
             "También se quitarán los accesos del menú, el acceso del Escritorio (si existe), "
-            "el lanzador de terminal y la entrada PATH añadida por este gestor.\\n\\n"
+            "el lanzador de terminal y la entrada PATH añadida por este gestor.\n\n"
             "No se eliminarán tus proyectos ni otras instalaciones de VS Code realizadas "
-            "mediante APT, Snap u otros métodos.\\n\\n"
+            "mediante APT, Snap u otros métodos.\n\n"
             "Esta operación no se puede deshacer. ¿Quieres continuar?"
         )
         if not messagebox.askyesno("Desinstalar Visual Studio Code", warning, icon="warning"):
@@ -469,10 +469,19 @@ Correo: montejaque@puntosvuela.es
             marker = "# VSCode Installer user PATH"
             if profile.is_file():
                 content = profile.read_text(encoding="utf-8")
-                content = re.sub(
-                    r"(?m)^# VSCode Installer user PATH\\nexport PATH=\\"\\$HOME/\\.local/bin:\\$PATH\\"\\n?",
-                    "", content
-                )
+                lines = content.splitlines()
+                kept = []
+                skip_path_line = False
+                for line in lines:
+                    if line.strip() == marker:
+                        skip_path_line = True
+                        continue
+                    if skip_path_line and line.strip() == 'export PATH="$HOME/.local/bin:$PATH"':
+                        skip_path_line = False
+                        continue
+                    skip_path_line = False
+                    kept.append(line)
+                content = "\n".join(kept).rstrip() + ("\n" if kept else "")
                 profile.write_text(content, encoding="utf-8")
 
             _refresh_desktop_caches()
