@@ -52,7 +52,7 @@ Durante una actualización, el gestor conserva temporalmente la instalación ant
 | Instalación administrada | `~/.local/opt/vscode` |
 | Ejecutable | `~/.local/opt/vscode/code` |
 | Lanzador de terminal | `~/.local/bin/code` |
-| Acceso al menú | `~/.local/share/applications/visual-studio-code.desktop` |
+| Acceso al menú | `$XDG_DATA_HOME/applications/visual-studio-code.desktop` y `~/.local/share/applications/visual-studio-code.desktop` |
 | Icono | `~/.local/share/icons/hicolor/256x256/apps/visual-studio-code.png` |
 | PATH | Entrada añadida a `~/.profile` |
 
@@ -151,4 +151,6 @@ El botón «Comprobar versión» busca VS Code en la instalación gestionada por
 
 ### Compatibilidad con carpetas XDG personalizadas
 
-El acceso se instala en `$XDG_DATA_HOME/applications` cuando esa variable está definida con una ruta absoluta. Si no está definida, se utiliza `~/.local/share/applications`. El icono se instala bajo el directorio XDG correspondiente. Esto evita crear el archivo en una carpeta que el escritorio no está indexando.
+Para evitar que el AppImage herede una variable `XDG_DATA_HOME` distinta a la de la sesión gráfica, el gestor crea el lanzador en dos ubicaciones: `$XDG_DATA_HOME/applications` (si la variable contiene una ruta absoluta) y la ruta estándar `~/.local/share/applications`. Si ambas coinciden, solo se crea una copia. El icono se instala en el tema de iconos del usuario y se actualizan las cachés disponibles sin usar permisos de administrador.
+
+En Ubuntu, la categoría `Development` identifica la aplicación como herramienta de desarrollo. Según la versión de GNOME, puede aparecer en la lista general de aplicaciones o en una agrupación/carpeta de desarrollo; GNOME no garantiza una carpeta llamada «Programación».
