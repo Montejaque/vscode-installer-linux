@@ -104,37 +104,24 @@ def _refresh_desktop_caches():
                 pass
 
 
-def integration():
-    """Reinstala y valida los accesos del menú y terminal tras cada instalación."""
+def integration(log=lambda message: None):
+    """Crea el acceso .desktop al estilo Ubuntu y verifica menú y escritorio."""
     executable = DEST / "code"
-    if not executable.is_file():
-        raise RuntimeError("No existe el ejecutable de VS Code en ~/.local/opt/vscode/code.")
-    if not version_at(DEST):
-        raise RuntimeError("No se encuentran los metadatos de versión de VS Code.")
+    icon = DEST / "resources" / "app" / "resources" / "linux" / "code.png"
+    if not executable.is_file() or not version_at(DEST):
+        raise RuntimeError("La instalación de VS Code no está completa; no se pueden crear los accesos.")
 
     BIN.parent.mkdir(parents=True, exist_ok=True)
     MENU.parent.mkdir(parents=True, exist_ok=True)
 
-    # Lanzador CLI persistente fuera del directorio que se sustituye al actualizar.
-    launcher = '#!/bin/sh\nexec "$HOME/.local/opt/vscode/code" "$@"\n'
+    # Lanzador de terminal: el menú gráfico apunta directamente al binario real.
+    launcher = '#!/bin/sh\nexec "' + str(executable) + '" "$@"\n'
     _atomic_write(BIN, launcher, 0o755)
-    if not BIN.is_file() or not os.access(BIN, os.X_OK):
-        raise RuntimeError("No se ha podido crear el lanzador ejecutable ~/.local/bin/code.")
+    if not os.access(BIN, os.X_OK):
+        raise RuntimeError("No se ha podido crear ~/.local/bin/code con permiso de ejecución.")
 
-    # Icono local: no depender de que el tema del escritorio incluya el icono de VS Code.
-    icon = DEST / "resources" / "app" / "resources" / "linux" / "code.png"
-    icon_name = "code"
-    if icon.is_file():
-        target = ROOT / "share" / "icons" / "hicolor" / "256x256" / "apps" / "visual-studio-code.png"
-        target.parent.mkdir(parents=True, exist_ok=True)
-        temporary_icon = target.with_name(target.name + ".tmp")
-        shutil.copy2(icon, temporary_icon)
-        os.replace(temporary_icon, target)
-        icon_name = str(target)
-    else:
-        # La entrada seguirá siendo válida aunque el paquete no incluya el PNG esperado.
-        icon_name = "com.visualstudio.code"
-
+    # Usar rutas absolutas en Exec e Icon: los archivos .desktop no expanden $HOME.
+    icon_value = str(icon) if icon.is_file() else "com.visualstudio.code"
     desktop_entry = (
         "[Desktop Entry]\n"
         "Version=1.0\n"
@@ -142,32 +129,59 @@ def integration():
         "Name=Visual Studio Code\n"
         "Name[es]=Visual Studio Code\n"
         "Comment=Editor de código\n"
-        'Exec="' + str(BIN) + '" --new-window %F\n'
-        'TryExec="' + str(BIN) + '"\n'
-        "Icon=" + icon_name + "\n"
+        'Exec="' + str(executable) + '" --reuse-window %F\n'
+        'TryExec="' + str(executable) + '"\n'
+        "Icon=" + icon_value + "\n"
         "Terminal=false\n"
-        "Categories=Development;IDE;TextEditor;\n"
         "StartupNotify=true\n"
-        "StartupWMClass=code\n"
+        "StartupWMClass=Code\n"
+        "Categories=Development;IDE;TextEditor;\n"
+        "MimeType=text/plain;application/x-code-workspace;\n"
     )
     _atomic_write(MENU, desktop_entry, 0o755)
 
-    # Validación del archivo .desktop con la herramienta estándar, si está instalada.
+    # Crear también un acceso en el Escritorio si el entorno tiene esa carpeta.
+    desktop_dirs = []
+    xdg_user_dir = shutil.which("xdg-user-dir")
+    if xdg_user_dir:
+        try:
+            result = subprocess.run([xdg_user_dir, "DESKTOP"], capture_output=True,
+                                    text=True, timeout=5, check=False)
+            candidate = Path(result.stdout.strip()).expanduser()
+            if result.returncode == 0 and candidate.is_dir():
+                desktop_dirs.append(candidate)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    default_desktop = HOME / "Desktop"
+    if default_desktop.is_dir() and default_desktop not in desktop_dirs:
+        desktop_dirs.append(default_desktop)
+
+    for directory in desktop_dirs:
+        shortcut = directory / "Visual Studio Code.desktop"
+        _atomic_write(shortcut, desktop_entry, 0o755)
+        log("Acceso directo creado en el Escritorio: " + str(shortcut))
+
+    # Marcar el acceso como ejecutable y validar el formato con las utilidades estándar.
+    MENU.chmod(0o755)
+    if not os.access(MENU, os.X_OK):
+        raise RuntimeError("El acceso del menú no tiene permiso de ejecución.")
+
     validator = shutil.which("desktop-file-validate")
     if validator:
         result = subprocess.run([validator, str(MENU)], capture_output=True,
                                 text=True, timeout=15, check=False)
         if result.returncode:
-            raise RuntimeError("El acceso del menú no supera desktop-file-validate: " +
+            raise RuntimeError("El archivo del menú no es válido: " +
                                (result.stderr.strip() or result.stdout.strip()))
 
     saved_entry = MENU.read_text(encoding="utf-8")
-    required = ("[Desktop Entry]", "Type=Application", "Name=Visual Studio Code",
-                "Exec=", "TryExec=", "Icon=", "Categories=")
-    if not MENU.is_file() or any(item not in saved_entry for item in required):
-        raise RuntimeError("El acceso del menú de aplicaciones está incompleto.")
-    if str(BIN) not in saved_entry or not os.access(BIN, os.X_OK):
-        raise RuntimeError("El acceso del menú no apunta al lanzador ejecutable correcto.")
+    for required in ("[Desktop Entry]", "Type=Application", "Name=Visual Studio Code",
+                     "Exec=" + '"' + str(executable) + '"', "TryExec=", "Icon=",
+                     "Categories=Development;IDE;TextEditor;"):
+        if required not in saved_entry:
+            raise RuntimeError("El acceso del menú no contiene el campo requerido: " + required)
+    if not executable.is_file() or not os.access(executable, os.X_OK):
+        raise RuntimeError("El ejecutable indicado por el acceso del menú no está disponible.")
 
     marker = "# VSCode Installer user PATH"
     profile = HOME / ".profile"
@@ -176,11 +190,21 @@ def integration():
         with profile.open("a", encoding="utf-8") as file:
             file.write('\n' + marker + '\nexport PATH="$HOME/.local/bin:$PATH"\n')
 
-    _refresh_desktop_caches()
-    log_path = MENU
-    # Confirmar que el .desktop sigue presente después de refrescar las cachés.
-    if not log_path.is_file():
-        raise RuntimeError("El acceso de Visual Studio Code no permanece en el menú de usuario.")
+    # Actualizar la base de datos MIME/menú de usuario; no requiere sudo.
+    updater = shutil.which("update-desktop-database")
+    if updater:
+        result = subprocess.run([updater, str(MENU.parent)], capture_output=True,
+                                text=True, timeout=15, check=False)
+        if result.returncode:
+            log("Aviso: no se pudo actualizar la caché del menú: " +
+                (result.stderr.strip() or result.stdout.strip()))
+    else:
+        log("Aviso: update-desktop-database no está instalado; el .desktop queda creado igualmente.")
+
+    if not MENU.is_file() or MENU.stat().st_size == 0:
+        raise RuntimeError("No se ha creado el acceso de Visual Studio Code en el menú.")
+    log("Acceso del menú creado y verificado: " + str(MENU))
+    log("Acceso directo de terminal creado: " + str(BIN))
 
 def install(log, progress):
     if sys.platform != "linux" or os.uname().machine not in ("x86_64", "amd64"):
