@@ -455,9 +455,9 @@ Correo: montejaque@puntosvuela.es
                 if show_result:
                     messagebox.showinfo(
                         "Versión de Visual Studio Code",
-                        "Se ha detectado Visual Studio Code.\\n\\n"
-                        "Versión: " + detected + "\\n"
-                        "Tipo: " + ("Instalación gestionada por este instalador" if managed_here else "Instalación existente") + "\\n"
+                        "Se ha detectado Visual Studio Code.\n\n"
+                        "Versión: " + detected + "\n"
+                        "Tipo: " + ("Instalación gestionada por este instalador" if managed_here else "Instalación existente") + "\n"
                         "Ubicación: " + location
                     )
             else:
@@ -466,7 +466,7 @@ Correo: montejaque@puntosvuela.es
                 if show_result:
                     messagebox.showwarning(
                         "VS Code no detectado",
-                        "No se ha encontrado Visual Studio Code en las ubicaciones habituales.\\n\\n"
+                        "No se ha encontrado Visual Studio Code en las ubicaciones habituales.\n\n"
                         "Puedes instalarlo con «Instalar / actualizar». Si ya está instalado, "
                         "comprueba que el ejecutable esté disponible y vuelve a pulsar «Comprobar versión»."
                     )
