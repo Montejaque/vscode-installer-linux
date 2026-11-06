@@ -21,7 +21,7 @@ Negro `#000000` y amarillo corporativo `#F3D54E`.
 chmod +x build-appimage.sh
 ./build-appimage.sh
 ```
-Requiere `appimagetool`. El AppImage empaqueta **el gestor**, no VS Code, y utiliza Python 3 y Tkinter del equipo anfitrión. No se ha compilado ni probado todavía un AppImage final.
+Requiere `appimagetool`. El AppImage empaqueta **el gestor**, no VS Code, y utiliza Python 3 y Tkinter del equipo anfitrión. No se ha generado todavía un binario AppImage en este entorno: no hay appimagetool/mksquashfs y no hay conectividad para obtenerlos. El script de construcción está incluido; no se debe presentar la estructura AppDir como un ejecutable terminado.
 
 ## Seguridad
 La descarga procede de `https://update.code.visualstudio.com/latest/linux-x64/stable`. El gestor no requiere privilegios elevados. La verificación criptográfica de la descarga no está implementada todavía. Prueba primero en un equipo no crítico.
