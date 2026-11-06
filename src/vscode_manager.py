@@ -281,19 +281,19 @@ def install(log, progress):
             if not installed_version:
                 raise RuntimeError("No se puede leer la versión desde resources/app/package.json tras instalar.")
             log("Versión instalada verificada: " + installed_version)
-            integration()
+            integration(log)
         except Exception:
             if DEST.exists():
                 shutil.rmtree(DEST, ignore_errors=True)
             if had_old and backup.exists():
                 os.replace(backup, DEST)
-                integration()
+                integration(log)
             raise
         if backup.exists():
             shutil.rmtree(backup)
         # Rehacer accesos una vez completado el reemplazo: el menú nunca debe quedarse
         # apuntando a archivos del directorio temporal o de la copia anterior.
-        integration()
+        integration(log)
         log("Accesos verificados: menú " + str(MENU) + " y comando " + str(BIN))
         progress(100, "Proceso completado.")
         log("VS Code " + (version() or "") + " instalado. Preferencias y extensiones conservadas.")
