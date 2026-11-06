@@ -81,6 +81,11 @@ Busca una instalación de VS Code en las ubicaciones habituales y muestra la ver
 ### Reparar acceso
 Vuelve a crear el lanzador `~/.local/bin/code`, el acceso al menú y la integración de usuario de la instalación administrada. No vuelve a descargar VS Code.
 
+### Desinstalar y eliminar datos
+El botón solicita confirmación antes de borrar la instalación administrada en `~/.local/opt/vscode`, la copia temporal de recuperación, el lanzador `~/.local/bin/code`, el acceso del menú, el icono, el acceso del Escritorio que haya creado el gestor, y los datos de usuario de VS Code (`~/.config/Code`, `~/.vscode`, cachés y datos locales). También retira exclusivamente la entrada PATH añadida por este programa.
+
+**Esta operación elimina preferencias, perfiles y extensiones y no se puede deshacer.** No elimina carpetas de proyectos ni instalaciones independientes realizadas con APT, Snap u otros métodos. El AppImage del propio gestor no se borra automáticamente porque puede estar ejecutándose desde cualquier ubicación.
+
 ### Ver guía de uso
 Abre las instrucciones integradas en la propia aplicación.
 
