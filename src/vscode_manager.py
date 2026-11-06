@@ -96,19 +96,31 @@ def _atomic_write(path, content, mode=0o644):
     os.replace(temporary, path)
 
 
-def _refresh_desktop_caches():
-    """Actualiza índices de menú/iconos si el escritorio ofrece esas herramientas."""
-    menu_dirs = {APPLICATIONS_DIR}
-    icon_dirs = {ICONS_DIR / "hicolor"}
-    commands = ([["update-desktop-database", str(directory)] for directory in menu_dirs]
-                + [["gtk-update-icon-cache", "-f", "-t", str(directory)] for directory in icon_dirs])
-    for command in commands:
-        if shutil.which(command[0]):
-            try:
-                subprocess.run(command, stdout=subprocess.DEVNULL,
-                               stderr=subprocess.DEVNULL, timeout=15, check=False)
-            except (OSError, subprocess.TimeoutExpired):
-                pass
+def _refresh_desktop_caches(log=lambda message: None):
+    """Actualiza MIME, menú XDG e iconos del usuario sin privilegios."""
+    # update-desktop-database solo actualiza asociaciones MIME; xdg-desktop-menu
+    # solicita además reconstruir los índices de menú compatibles con XDG.
+    commands = [
+        (["update-desktop-database", str(APPLICATIONS_DIR)], "base MIME"),
+        (["xdg-desktop-menu", "forceupdate", "--mode", "user"], "índice del menú XDG"),
+        (["gtk-update-icon-cache", "-f", "-t", str(ICONS_DIR / "hicolor")], "caché de iconos"),
+    ]
+    for command, description in commands:
+        executable = shutil.which(command[0])
+        if not executable:
+            log("Aviso: no está disponible " + command[0] + "; se omite " + description + ".")
+            continue
+        try:
+            result = subprocess.run(command, capture_output=True, text=True,
+                                    timeout=20, check=False)
+            if result.returncode == 0:
+                log("Actualizado: " + description + ".")
+            else:
+                detail = (result.stderr or result.stdout).strip()
+                log("Aviso: no se pudo actualizar " + description +
+                    (": " + detail if detail else "."))
+        except (OSError, subprocess.TimeoutExpired) as error:
+            log("Aviso: error al actualizar " + description + ": " + str(error))
 
 
 def integration(log=lambda message: None):
@@ -234,25 +246,15 @@ def integration(log=lambda message: None):
         with profile.open("a", encoding="utf-8") as file:
             file.write('\n' + marker + '\nexport PATH="$HOME/.local/bin:$PATH"\n')
 
-    # Actualizar la base de datos MIME/menú de usuario; no requiere sudo.
-    updater = shutil.which("update-desktop-database")
-    if updater:
-        for menu_dir in dict.fromkeys(path.parent for path in menu_paths):
-            result = subprocess.run([updater, str(menu_dir)], capture_output=True,
-                                    text=True, timeout=15, check=False)
-            if result.returncode:
-                log("Aviso: no se pudo actualizar la caché del menú: " +
-                    (result.stderr.strip() or result.stdout.strip()))
-    else:
-        log("Aviso: update-desktop-database no está instalado; las entradas quedan creadas.")
-
-    _refresh_desktop_caches()
+    # Refrescar MIME, índice de menú XDG e iconos; no requiere sudo.
+    _refresh_desktop_caches(log)
     for menu_path in menu_paths:
         if not menu_path.is_file() or menu_path.stat().st_size == 0:
             raise RuntimeError("No se ha creado el acceso de Visual Studio Code: " + str(menu_path))
         log("Acceso del menú creado y verificado: " + str(menu_path))
     log("Acceso directo de terminal creado: " + str(BIN))
     log("Ubicación única del menú: " + str(MENU))
+    log("Si GNOME no muestra el acceso inmediatamente, cierra sesión y vuelve a entrar para reconstruir su catálogo de aplicaciones.")
 
 def install(log, progress):
     if sys.platform != "linux" or os.uname().machine not in ("x86_64", "amd64"):
