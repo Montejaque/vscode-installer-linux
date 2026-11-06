@@ -16,7 +16,7 @@ El AppImage incorpora el ejecutable del gestor, Python y Tkinter mediante PyInst
     ./VSCode-Installer-Updater-x86_64.AppImage
 
 ## Instalar o actualizar Visual Studio Code
-En la ventana del gestor, pulsa **Instalar / actualizar**. El programa descarga automáticamente la versión estable oficial de Microsoft para Linux x64 en formato TAR.GZ, valida las rutas del archivo y la estructura básica del paquete, y la instala en `~/.local/opt/vscode`.
+En la ventana del gestor, pulsa **Instalar / actualizar**. El programa descarga automáticamente la versión estable oficial de Microsoft para Linux x64 en formato TAR.GZ. La barra de progreso informa del avance de descarga, extracción, instalación y verificación. Al terminar, muestra la versión instalada.
 
 El gestor crea:
 - Lanzador: `~/.local/bin/code`.
@@ -25,6 +25,15 @@ El gestor crea:
 - Entrada de PATH en `~/.profile` para que el comando `code` esté disponible en nuevas terminales.
 
 No se utiliza sudo. Las preferencias y extensiones existentes se conservan. Durante la actualización se mantiene una copia temporal de recuperación y se restaura la instalación anterior si falla la validación de la nueva.
+
+## Guía integrada y contacto
+La ventana incluye el botón **Ver guía de uso**, con instrucciones y datos de contacto del centro.
+
+- Desarrollador: Francisco Javier Gallego Orellana.
+- Centro: Punto Vuela Montejaque.
+- Dirección: Avenida Andalucía, 48, 29360 Montejaque (Málaga).
+- Teléfono: 633 402 959.
+- Correo: montejaque@puntosvuela.es.
 
 ## Otras opciones
 - **Comprobar versión:** muestra la versión de VS Code instalada.
