@@ -80,28 +80,79 @@ def detect_installed():
             return detected, str(binary)
     return None, None
 
+def _atomic_write(path, content, mode=0o644):
+    """Escribe un archivo de integración sin dejarlo parcialmente escrito."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(content, encoding="utf-8")
+    temporary.chmod(mode)
+    os.replace(temporary, path)
+
+
+def _refresh_desktop_caches():
+    """Actualiza índices locales cuando las herramientas están disponibles."""
+    commands = [
+        ["update-desktop-database", str(MENU.parent)],
+        ["gtk-update-icon-cache", "-f", "-t", str(ROOT / "share" / "icons" / "hicolor")],
+    ]
+    for command in commands:
+        if shutil.which(command[0]):
+            try:
+                subprocess.run(command, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, timeout=15, check=False)
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+
+
 def integration():
+    """Crea y comprueba lanzador, icono, menú y PATH en el perfil del usuario."""
+    executable = DEST / "code"
+    if not executable.is_file():
+        raise RuntimeError("No existe el ejecutable de VS Code en ~/.local/opt/vscode/code.")
+    if not version_at(DEST):
+        raise RuntimeError("No se encuentran los metadatos de versión de VS Code.")
+
     BIN.parent.mkdir(parents=True, exist_ok=True)
     MENU.parent.mkdir(parents=True, exist_ok=True)
-    BIN.write_text('#!/bin/sh\nexec "$HOME/.local/opt/vscode/code" "$@"\n')
-    BIN.chmod(0o755)
+    launcher = '#!/bin/sh\\nexec "$HOME/.local/opt/vscode/code" "$@"\\n'
+    _atomic_write(BIN, launcher, 0o755)
+    if not os.access(BIN, os.X_OK):
+        raise RuntimeError("No se ha podido crear el lanzador ejecutable ~/.local/bin/code.")
+
     icon = DEST / "resources" / "app" / "resources" / "linux" / "code.png"
     icon_name = "com.visualstudio.code"
     if icon.is_file():
-        target = ROOT / "share/icons/hicolor/256x256/apps/visual-studio-code.png"
+        target = ROOT / "share" / "icons" / "hicolor" / "256x256" / "apps" / "visual-studio-code.png"
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(icon, target)
+        temporary_icon = target.with_name(target.name + ".tmp")
+        shutil.copy2(icon, temporary_icon)
+        os.replace(temporary_icon, target)
         icon_name = str(target)
-    MENU.write_text("[Desktop Entry]\nType=Application\nName=Visual Studio Code\n"
-                    'Exec="' + str(BIN) + '" --new-window %F\n'
-                    "Icon=" + icon_name + "\nTerminal=false\n"
-                    "Categories=Development;IDE;TextEditor;\nStartupNotify=true\n")
+
+    desktop_entry = (
+        "[Desktop Entry]\\n"
+        "Version=1.0\\n"
+        "Type=Application\\n"
+        "Name=Visual Studio Code\\n"
+        "Comment=Editor de código\\n"
+        'Exec="' + str(BIN) + '" --new-window %F\\n'
+        'TryExec="' + str(BIN) + '"\\n'
+        "Icon=" + icon_name + "\\n"
+        "Terminal=false\\n"
+        "Categories=Development;IDE;TextEditor;\\n"
+        "StartupNotify=true\\n"
+        "StartupWMClass=code\\n"
+    )
+    _atomic_write(MENU, desktop_entry)
+    if not MENU.is_file() or str(BIN) not in MENU.read_text(encoding="utf-8"):
+        raise RuntimeError("No se ha podido verificar el acceso del menú de aplicaciones.")
+
     marker = "# VSCode Installer user PATH"
     profile = HOME / ".profile"
-    content = profile.read_text() if profile.exists() else ""
+    content = profile.read_text(encoding="utf-8") if profile.exists() else ""
     if marker not in content:
-        with profile.open("a") as file:
-            file.write('\n' + marker + '\nexport PATH="$HOME/.local/bin:$PATH"\n')
+        with profile.open("a", encoding="utf-8") as file:
+            file.write('\\n' + marker + '\\nexport PATH="$HOME/.local/bin:$PATH"\\n')
 
 def install(log, progress):
     if sys.platform != "linux" or os.uname().machine not in ("x86_64", "amd64"):
