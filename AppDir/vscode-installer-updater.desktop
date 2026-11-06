@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=VS Code Installer & Updater
+Exec=AppRun
+Icon=vscode-installer-updater
+Categories=Development;Utility;
+Terminal=false
