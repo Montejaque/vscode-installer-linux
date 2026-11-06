@@ -22,10 +22,15 @@ if not _xdg_data_home.is_absolute():
     _xdg_data_home = ROOT / "share"
 DATA_HOME = _xdg_data_home
 APPLICATIONS_DIR = DATA_HOME / "applications"
+# Mantener también la ruta estándar de Ubuntu por si el proceso AppImage
+# hereda un XDG_DATA_HOME distinto al de la sesión gráfica.
+STANDARD_APPLICATIONS_DIR = ROOT / "share" / "applications"
 ICONS_DIR = DATA_HOME / "icons"
+STANDARD_ICONS_DIR = ROOT / "share" / "icons"
 DEST = ROOT / "opt" / "vscode"
 BIN = ROOT / "bin" / "code"
 MENU = APPLICATIONS_DIR / "visual-studio-code.desktop"
+STANDARD_MENU = STANDARD_APPLICATIONS_DIR / "visual-studio-code.desktop"
 URL = "https://update.code.visualstudio.com/latest/linux-x64/stable"
 
 def read_version(binary):
@@ -98,10 +103,10 @@ def _atomic_write(path, content, mode=0o644):
 
 def _refresh_desktop_caches():
     """Actualiza índices de menú/iconos si el escritorio ofrece esas herramientas."""
-    commands = [
-        ["update-desktop-database", str(MENU.parent)],
-        ["gtk-update-icon-cache", "-f", "-t", str(ICONS_DIR / "hicolor")],
-    ]
+    menu_dirs = {MENU.parent, STANDARD_MENU.parent}
+    icon_dirs = {ICONS_DIR / "hicolor", STANDARD_ICONS_DIR / "hicolor"}
+    commands = ([["update-desktop-database", str(directory)] for directory in menu_dirs]
+                + [["gtk-update-icon-cache", "-f", "-t", str(directory)] for directory in icon_dirs])
     for command in commands:
         if shutil.which(command[0]):
             try:
@@ -175,7 +180,11 @@ def integration(log=lambda message: None):
         "Keywords=programacion;desarrollo;editor;codigo;code;\n"
         "MimeType=text/plain;application/x-code-workspace;\n"
     )
-    _atomic_write(MENU, desktop_entry, 0o755)
+    # Crear la entrada tanto en XDG_DATA_HOME como en la ruta estándar Ubuntu.
+    menu_paths = list(dict.fromkeys((MENU, STANDARD_MENU)))
+    for menu_path in menu_paths:
+        _atomic_write(menu_path, desktop_entry, 0o755)
+        log("Entrada de menú creada: " + str(menu_path))
 
     # Crear también un acceso en el Escritorio si el entorno tiene esa carpeta.
     desktop_dirs = []
@@ -199,17 +208,18 @@ def integration(log=lambda message: None):
         log("Acceso directo creado en el Escritorio: " + str(shortcut))
 
     # Marcar el acceso como ejecutable y validar el formato con las utilidades estándar.
-    MENU.chmod(0o755)
-    if not os.access(MENU, os.X_OK):
-        raise RuntimeError("El acceso del menú no tiene permiso de ejecución.")
+    for menu_path in menu_paths:
+        if not menu_path.is_file() or not os.access(menu_path, os.X_OK):
+            raise RuntimeError("No se ha creado correctamente el acceso del menú: " + str(menu_path))
 
     validator = shutil.which("desktop-file-validate")
     if validator:
-        result = subprocess.run([validator, str(MENU)], capture_output=True,
-                                text=True, timeout=15, check=False)
-        if result.returncode:
-            raise RuntimeError("El archivo del menú no es válido: " +
-                               (result.stderr.strip() or result.stdout.strip()))
+        for menu_path in menu_paths:
+            result = subprocess.run([validator, str(menu_path)], capture_output=True,
+                                    text=True, timeout=15, check=False)
+            if result.returncode:
+                raise RuntimeError("El archivo del menú no es válido: " +
+                                   (result.stderr.strip() or result.stdout.strip()))
 
     saved_entry = MENU.read_text(encoding="utf-8")
     for required in ("[Desktop Entry]", "Type=Application", "Name=Visual Studio Code",
@@ -230,17 +240,19 @@ def integration(log=lambda message: None):
     # Actualizar la base de datos MIME/menú de usuario; no requiere sudo.
     updater = shutil.which("update-desktop-database")
     if updater:
-        result = subprocess.run([updater, str(MENU.parent)], capture_output=True,
-                                text=True, timeout=15, check=False)
-        if result.returncode:
-            log("Aviso: no se pudo actualizar la caché del menú: " +
-                (result.stderr.strip() or result.stdout.strip()))
+        for menu_dir in dict.fromkeys(path.parent for path in menu_paths):
+            result = subprocess.run([updater, str(menu_dir)], capture_output=True,
+                                    text=True, timeout=15, check=False)
+            if result.returncode:
+                log("Aviso: no se pudo actualizar la caché del menú: " +
+                    (result.stderr.strip() or result.stdout.strip()))
     else:
-        log("Aviso: update-desktop-database no está instalado; el .desktop queda creado igualmente.")
+        log("Aviso: update-desktop-database no está instalado; las entradas quedan creadas.")
 
-    if not MENU.is_file() or MENU.stat().st_size == 0:
-        raise RuntimeError("No se ha creado el acceso de Visual Studio Code en el menú.")
-    log("Acceso del menú creado y verificado: " + str(MENU))
+    for menu_path in menu_paths:
+        if not menu_path.is_file() or menu_path.stat().st_size == 0:
+            raise RuntimeError("No se ha creado el acceso de Visual Studio Code: " + str(menu_path))
+        log("Acceso del menú creado y verificado: " + str(menu_path))
     log("Acceso directo de terminal creado: " + str(BIN))
 
 def install(log, progress):
@@ -497,7 +509,9 @@ Correo: montejaque@puntosvuela.es
                 DEST.parent / "vscode.previous",
                 BIN,
                 MENU,
+                STANDARD_MENU,
                 ICONS_DIR / "hicolor" / "256x256" / "apps" / "visual-studio-code.png",
+                STANDARD_ICONS_DIR / "hicolor" / "256x256" / "apps" / "visual-studio-code.png",
                 HOME / ".config" / "Code",
                 HOME / ".vscode",
                 HOME / ".cache" / "Code",
