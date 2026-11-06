@@ -90,7 +90,7 @@ def _atomic_write(path, content, mode=0o644):
 
 
 def _refresh_desktop_caches():
-    """Actualiza índices locales cuando las herramientas están disponibles."""
+    """Actualiza índices de menú/iconos si el escritorio ofrece esas herramientas."""
     commands = [
         ["update-desktop-database", str(MENU.parent)],
         ["gtk-update-icon-cache", "-f", "-t", str(ROOT / "share" / "icons" / "hicolor")],
@@ -105,7 +105,7 @@ def _refresh_desktop_caches():
 
 
 def integration():
-    """Crea y comprueba lanzador, icono, menú y PATH en el perfil del usuario."""
+    """Reinstala y valida los accesos del menú y terminal tras cada instalación."""
     executable = DEST / "code"
     if not executable.is_file():
         raise RuntimeError("No existe el ejecutable de VS Code en ~/.local/opt/vscode/code.")
@@ -114,13 +114,16 @@ def integration():
 
     BIN.parent.mkdir(parents=True, exist_ok=True)
     MENU.parent.mkdir(parents=True, exist_ok=True)
+
+    # Lanzador CLI persistente fuera del directorio que se sustituye al actualizar.
     launcher = '#!/bin/sh\nexec "$HOME/.local/opt/vscode/code" "$@"\n'
     _atomic_write(BIN, launcher, 0o755)
-    if not os.access(BIN, os.X_OK):
+    if not BIN.is_file() or not os.access(BIN, os.X_OK):
         raise RuntimeError("No se ha podido crear el lanzador ejecutable ~/.local/bin/code.")
 
+    # Icono local: no depender de que el tema del escritorio incluya el icono de VS Code.
     icon = DEST / "resources" / "app" / "resources" / "linux" / "code.png"
-    icon_name = "com.visualstudio.code"
+    icon_name = "code"
     if icon.is_file():
         target = ROOT / "share" / "icons" / "hicolor" / "256x256" / "apps" / "visual-studio-code.png"
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -128,12 +131,16 @@ def integration():
         shutil.copy2(icon, temporary_icon)
         os.replace(temporary_icon, target)
         icon_name = str(target)
+    else:
+        # La entrada seguirá siendo válida aunque el paquete no incluya el PNG esperado.
+        icon_name = "com.visualstudio.code"
 
     desktop_entry = (
         "[Desktop Entry]\n"
         "Version=1.0\n"
         "Type=Application\n"
         "Name=Visual Studio Code\n"
+        "Name[es]=Visual Studio Code\n"
         "Comment=Editor de código\n"
         'Exec="' + str(BIN) + '" --new-window %F\n'
         'TryExec="' + str(BIN) + '"\n'
@@ -143,9 +150,24 @@ def integration():
         "StartupNotify=true\n"
         "StartupWMClass=code\n"
     )
-    _atomic_write(MENU, desktop_entry)
-    if not MENU.is_file() or str(BIN) not in MENU.read_text(encoding="utf-8"):
-        raise RuntimeError("No se ha podido verificar el acceso del menú de aplicaciones.")
+    _atomic_write(MENU, desktop_entry, 0o755)
+
+    # Validación del archivo .desktop con la herramienta estándar, si está instalada.
+    validator = shutil.which("desktop-file-validate")
+    if validator:
+        result = subprocess.run([validator, str(MENU)], capture_output=True,
+                                text=True, timeout=15, check=False)
+        if result.returncode:
+            raise RuntimeError("El acceso del menú no supera desktop-file-validate: " +
+                               (result.stderr.strip() or result.stdout.strip()))
+
+    saved_entry = MENU.read_text(encoding="utf-8")
+    required = ("[Desktop Entry]", "Type=Application", "Name=Visual Studio Code",
+                "Exec=", "TryExec=", "Icon=", "Categories=")
+    if not MENU.is_file() or any(item not in saved_entry for item in required):
+        raise RuntimeError("El acceso del menú de aplicaciones está incompleto.")
+    if str(BIN) not in saved_entry or not os.access(BIN, os.X_OK):
+        raise RuntimeError("El acceso del menú no apunta al lanzador ejecutable correcto.")
 
     marker = "# VSCode Installer user PATH"
     profile = HOME / ".profile"
@@ -153,6 +175,12 @@ def integration():
     if marker not in content:
         with profile.open("a", encoding="utf-8") as file:
             file.write('\n' + marker + '\nexport PATH="$HOME/.local/bin:$PATH"\n')
+
+    _refresh_desktop_caches()
+    log_path = MENU
+    # Confirmar que el .desktop sigue presente después de refrescar las cachés.
+    if not log_path.is_file():
+        raise RuntimeError("El acceso de Visual Studio Code no permanece en el menú de usuario.")
 
 def install(log, progress):
     if sys.platform != "linux" or os.uname().machine not in ("x86_64", "amd64"):
@@ -239,6 +267,10 @@ def install(log, progress):
             raise
         if backup.exists():
             shutil.rmtree(backup)
+        # Rehacer accesos una vez completado el reemplazo: el menú nunca debe quedarse
+        # apuntando a archivos del directorio temporal o de la copia anterior.
+        integration()
+        log("Accesos verificados: menú " + str(MENU) + " y comando " + str(BIN))
         progress(100, "Proceso completado.")
         log("VS Code " + (version() or "") + " instalado. Preferencias y extensiones conservadas.")
 
