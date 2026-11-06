@@ -9,6 +9,7 @@ on:
       - 'src/**'
       - 'build-appimage.sh'
       - '.github/workflows/build-appimage.yml'
+      - '.github/workflows/build-appimage.yml'
 
 permissions:
   contents: read
