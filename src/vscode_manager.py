@@ -16,9 +16,16 @@ from tkinter import ttk, messagebox
 
 HOME = Path.home()
 ROOT = HOME / ".local"
+# Respetar XDG_DATA_HOME: GNOME/Ubuntu solo indexa esa carpeta cuando está definida.
+_xdg_data_home = Path(os.environ.get("XDG_DATA_HOME", str(ROOT / "share"))).expanduser()
+if not _xdg_data_home.is_absolute():
+    _xdg_data_home = ROOT / "share"
+DATA_HOME = _xdg_data_home
+APPLICATIONS_DIR = DATA_HOME / "applications"
+ICONS_DIR = DATA_HOME / "icons"
 DEST = ROOT / "opt" / "vscode"
 BIN = ROOT / "bin" / "code"
-MENU = ROOT / "share" / "applications" / "visual-studio-code.desktop"
+MENU = APPLICATIONS_DIR / "visual-studio-code.desktop"
 URL = "https://update.code.visualstudio.com/latest/linux-x64/stable"
 
 def read_version(binary):
@@ -93,7 +100,7 @@ def _refresh_desktop_caches():
     """Actualiza índices de menú/iconos si el escritorio ofrece esas herramientas."""
     commands = [
         ["update-desktop-database", str(MENU.parent)],
-        ["gtk-update-icon-cache", "-f", "-t", str(ROOT / "share" / "icons" / "hicolor")],
+        ["gtk-update-icon-cache", "-f", "-t", str(ICONS_DIR / "hicolor")],
     ]
     for command in commands:
         if shutil.which(command[0]):
@@ -122,7 +129,7 @@ def integration(log=lambda message: None):
 
     # Instalar una copia del icono en el tema hicolor del usuario. Así el menú
     # no depende de rutas internas que puedan cambiar durante una actualización.
-    icon_target = ROOT / "share" / "icons" / "hicolor" / "256x256" / "apps" / "visual-studio-code.png"
+    icon_target = ICONS_DIR / "hicolor" / "256x256" / "apps" / "visual-studio-code.png"
     icon_sources = [
         icon,
         DEST / "resources" / "app" / "resources" / "linux" / "code_512x512.png",
@@ -200,7 +207,7 @@ def integration(log=lambda message: None):
     saved_entry = MENU.read_text(encoding="utf-8")
     for required in ("[Desktop Entry]", "Type=Application", "Name=Visual Studio Code",
                      "Exec=" + '"' + str(executable) + '"', "TryExec=", "Icon=",
-                     "Categories=Development;IDE;TextEditor;"):
+                     "Categories=Development;IDE;TextEditor;", "NoDisplay=false", "Hidden=false"):
         if required not in saved_entry:
             raise RuntimeError("El acceso del menú no contiene el campo requerido: " + required)
     if not executable.is_file() or not os.access(executable, os.X_OK):
@@ -483,7 +490,7 @@ Correo: montejaque@puntosvuela.es
                 DEST.parent / "vscode.previous",
                 BIN,
                 MENU,
-                ROOT / "share" / "icons" / "hicolor" / "256x256" / "apps" / "visual-studio-code.png",
+                ICONS_DIR / "hicolor" / "256x256" / "apps" / "visual-studio-code.png",
                 HOME / ".config" / "Code",
                 HOME / ".vscode",
                 HOME / ".cache" / "Code",
