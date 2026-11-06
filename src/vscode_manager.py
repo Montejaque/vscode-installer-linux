@@ -326,7 +326,7 @@ class App(tk.Tk):
         self.buttons = []
         for label, action in [("Instalar / actualizar", self.start),
                               ("Comprobar versión", self.refresh),
-                              ("Reparar acceso", self.repair)]:
+                              ("Reparar acceso", self.repair),\n                              ("Desinstalar y eliminar datos", self.uninstall)]:
             button = ttk.Button(bar, text=label, command=action)
             button.pack(side="left", padx=(0, 12))
             self.buttons.append(button)
@@ -406,6 +406,90 @@ Correo: montejaque@puntosvuela.es
             messagebox.showinfo("Correcto", "Acceso del menú reparado.")
         except Exception as exc:
             messagebox.showerror("Error", str(exc))
+
+    def uninstall(self):
+        if self.busy:
+            return
+        warning = (
+            "Se eliminará la instalación de VS Code gestionada por esta aplicación y TODOS "
+            "sus datos de usuario: preferencias, perfiles, extensiones y caché.\\n\\n"
+            "También se quitarán los accesos del menú, el acceso del Escritorio (si existe), "
+            "el lanzador de terminal y la entrada PATH añadida por este gestor.\\n\\n"
+            "No se eliminarán tus proyectos ni otras instalaciones de VS Code realizadas "
+            "mediante APT, Snap u otros métodos.\\n\\n"
+            "Esta operación no se puede deshacer. ¿Quieres continuar?"
+        )
+        if not messagebox.askyesno("Desinstalar Visual Studio Code", warning, icon="warning"):
+            return
+        self.busy = True
+        for button in self.buttons:
+            button.config(state="disabled")
+        try:
+            self.log("Iniciando desinstalación completa de la copia gestionada...")
+            remove_paths = [
+                DEST,
+                DEST.parent / "vscode.previous",
+                BIN,
+                MENU,
+                ROOT / "share" / "icons" / "hicolor" / "256x256" / "apps" / "visual-studio-code.png",
+                HOME / ".config" / "Code",
+                HOME / ".vscode",
+                HOME / ".cache" / "Code",
+                HOME / ".cache" / "code",
+                HOME / ".local" / "share" / "Code",
+            ]
+            xdg_user_dir = shutil.which("xdg-user-dir")
+            desktop_dirs = [HOME / "Desktop"]
+            if xdg_user_dir:
+                try:
+                    result = subprocess.run([xdg_user_dir, "DESKTOP"], capture_output=True,
+                                            text=True, timeout=5, check=False)
+                    candidate = Path(result.stdout.strip()).expanduser()
+                    if result.returncode == 0:
+                        desktop_dirs.append(candidate)
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
+            for directory in dict.fromkeys(desktop_dirs):
+                remove_paths.append(directory / "Visual Studio Code.desktop")
+
+            for path in remove_paths:
+                try:
+                    if path.is_symlink() or path.is_file():
+                        path.unlink(missing_ok=True)
+                    elif path.is_dir():
+                        shutil.rmtree(path)
+                    self.log("Eliminado: " + str(path))
+                except FileNotFoundError:
+                    pass
+                except OSError as exc:
+                    raise RuntimeError("No se pudo eliminar " + str(path) + ": " + str(exc))
+
+            # Retirar únicamente el bloque PATH que añadió esta aplicación.
+            profile = HOME / ".profile"
+            marker = "# VSCode Installer user PATH"
+            if profile.is_file():
+                content = profile.read_text(encoding="utf-8")
+                content = re.sub(
+                    r"(?m)^# VSCode Installer user PATH\\nexport PATH=\\"\\$HOME/\\.local/bin:\\$PATH\\"\\n?",
+                    "", content
+                )
+                profile.write_text(content, encoding="utf-8")
+
+            _refresh_desktop_caches()
+            self.log("Desinstalación completada. Los proyectos personales no se han eliminado.")
+            self.status.config(text="VS Code gestionado por esta aplicación: desinstalado")
+            messagebox.showinfo(
+                "Desinstalación completada",
+                "Se ha eliminado VS Code y sus datos de usuario, junto con los accesos. "
+                "Tus proyectos y otras instalaciones no se han modificado."
+            )
+        except Exception as exc:
+            self.log("ERROR durante la desinstalación: " + str(exc))
+            messagebox.showerror("Error al desinstalar", str(exc))
+        finally:
+            self.busy = False
+            for button in self.buttons:
+                button.config(state="normal")
 
     def start(self):
         if self.busy:
