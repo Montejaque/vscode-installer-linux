@@ -1,13 +1,23 @@
-name: Build Linux AppImage
+name: Build and publish Linux AppImage
 
 on:
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Versión a publicar (por ejemplo, v1.0.0)"
+        required: true
+        default: "v1.0.0"
+        type: string
   push:
     branches: [main]
     tags: ['v*']
 
 permissions:
   contents: write
+
+concurrency:
+  group: vscode-installer-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   appimage:
@@ -65,10 +75,12 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish versioned GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          name: VS Code Installer Updater ${{ github.ref_name }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.release_version || github.ref_name }}
+          target_commitish: main
+          name: VS Code Installer Updater ${{ github.event_name == 'workflow_dispatch' && inputs.release_version || github.ref_name }}
           generate_release_notes: true
           files: dist/VSCode-Installer-Updater-x86_64.AppImage
