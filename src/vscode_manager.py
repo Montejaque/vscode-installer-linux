@@ -120,8 +120,31 @@ def integration(log=lambda message: None):
     if not os.access(BIN, os.X_OK):
         raise RuntimeError("No se ha podido crear ~/.local/bin/code con permiso de ejecución.")
 
+    # Instalar una copia del icono en el tema hicolor del usuario. Así el menú
+    # no depende de rutas internas que puedan cambiar durante una actualización.
+    icon_target = ROOT / "share" / "icons" / "hicolor" / "256x256" / "apps" / "visual-studio-code.png"
+    icon_sources = [
+        icon,
+        DEST / "resources" / "app" / "resources" / "linux" / "code_512x512.png",
+        DEST / "resources" / "app" / "resources" / "linux" / "product_icon.png",
+    ]
+    if not any(source.is_file() for source in icon_sources):
+        resources_dir = DEST / "resources" / "app" / "resources"
+        if resources_dir.is_dir():
+            icon_sources.extend(sorted(resources_dir.rglob("code.png")))
+            icon_sources.extend(sorted(resources_dir.rglob("product_icon.png")))
+    icon_source = next((source for source in icon_sources if source.is_file()), None)
+    if icon_source:
+        icon_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(icon_source, icon_target)
+        icon_target.chmod(0o644)
+        icon_value = str(icon_target)
+        log("Icono del menú instalado: " + str(icon_target))
+    else:
+        icon_value = "com.visualstudio.code"
+        log("Aviso: no se encontró un PNG de VS Code en el paquete; se usará el icono del tema si está disponible.")
+
     # Usar rutas absolutas en Exec e Icon: los archivos .desktop no expanden $HOME.
-    icon_value = str(icon) if icon.is_file() else "com.visualstudio.code"
     desktop_entry = (
         "[Desktop Entry]\n"
         "Version=1.0\n"
