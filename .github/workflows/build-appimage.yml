@@ -1,0 +1,62 @@
+name: Build Linux AppImage
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'AppDir/**'
+      - 'src/**'
+      - 'build-appimage.sh'
+      - '.github/workflows/build-appimage.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  appimage:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y squashfs-tools file desktop-file-utils
+
+      - name: Prepare AppDir
+        run: |
+          chmod +x AppDir/AppRun
+          mkdir -p AppDir/usr/share/vscode-installer-updater/src
+          cp src/vscode_manager.py AppDir/usr/share/vscode-installer-updater/src/vscode_manager.py
+          install -Dm644 AppDir/vscode-installer-updater.desktop AppDir/vscode-installer-updater.desktop
+          test -f AppDir/vscode-installer-updater.svg
+          desktop-file-validate AppDir/vscode-installer-updater.desktop
+          file AppDir/AppRun
+
+      - name: Download appimagetool
+        run: |
+          curl --fail --location --retry 3 \
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage \
+            --output appimagetool
+          chmod +x appimagetool
+          ./appimagetool --version || APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool --version
+
+      - name: Build AppImage
+        env:
+          ARCH: x86_64
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: |
+          ./appimagetool AppDir dist/VSCode-Installer-Updater-x86_64.AppImage
+          chmod +x dist/VSCode-Installer-Updater-x86_64.AppImage
+          file dist/VSCode-Installer-Updater-x86_64.AppImage
+          test -s dist/VSCode-Installer-Updater-x86_64.AppImage
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VSCode-Installer-Updater-x86_64-AppImage
+          path: dist/VSCode-Installer-Updater-x86_64.AppImage
+          if-no-files-found: error
+          retention-days: 30
