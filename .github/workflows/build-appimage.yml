@@ -1,16 +1,10 @@
 name: Build and publish Linux AppImage
 
 on:
-  workflow_dispatch:
-    inputs:
-      release_version:
-        description: "Versión a publicar (por ejemplo, v1.0.1)"
-        required: true
-        default: "v1.0.1"
-        type: string
   push:
     branches: [main]
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -37,7 +31,6 @@ jobs:
             export PATH="$HOME/.local/bin:$PATH"
             python3 -m PyInstaller --noconfirm --clean --onefile --name vscode-installer-updater src/vscode_manager.py
             test -s dist/vscode-installer-updater
-            ldd --version | head -n 1
             file dist/vscode-installer-updater
           '
 
@@ -84,11 +77,11 @@ jobs:
           retention-days: 30
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.release_version || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.0.1' }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v1.0.{0}', github.run_number) }}
           target_commitish: main
-          name: VS Code Installer Updater ${{ github.event_name == 'workflow_dispatch' && inputs.release_version || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.0.1' }}
+          name: VS Code Installer Updater ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v1.0.{0}', github.run_number) }}
           generate_release_notes: true
           files: dist/VSCode-Installer-Updater-x86_64.AppImage
