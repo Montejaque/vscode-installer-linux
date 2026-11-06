@@ -369,7 +369,7 @@ class App(tk.Tk):
         tk.Label(footer, text="Teléfono: 633 402 959 · Correo: montejaque@puntosvuela.es",
                  bg="white", fg="#333333").pack(anchor="w")
         ttk.Button(footer, text="Ver guía de uso", command=self.show_guide).pack(anchor="e", pady=(5, 0))
-        self.refresh()
+        self.refresh(show_result=False)
 
     def log(self, msg):
         self.after(0, lambda: (self.log_area.insert("end", msg + "\n"),
@@ -413,13 +413,41 @@ Correo: montejaque@puntosvuela.es
         area.insert("1.0", guide)
         area.config(state="disabled")
 
-    def refresh(self):
-        detected, location = detect_installed()
-        if detected:
-            managed = " (gestionada aquí)" if location == str(DEST / "code") else " (instalación existente)"
-            self.status.config(text=f"VS Code detectado: {detected}{managed} · {location}")
-        else:
-            self.status.config(text="VS Code no detectado en las ubicaciones habituales")
+    def refresh(self, show_result=True):
+        """Comprueba VS Code y ofrece siempre un resultado visible al usuario."""
+        self.log("Comprobando instalaciones de Visual Studio Code...")
+        try:
+            detected, location = detect_installed()
+            if detected:
+                managed_here = Path(location).resolve() == (DEST / "code").resolve()
+                managed = " (gestionada por este instalador)" if managed_here else " (instalación existente)"
+                status = f"VS Code detectado: {detected}{managed} · {location}"
+                self.status.config(text=status)
+                self.log("Resultado: versión " + detected + managed + ".")
+                self.log("Ejecutable detectado: " + location)
+                if show_result:
+                    messagebox.showinfo(
+                        "Versión de Visual Studio Code",
+                        "Se ha detectado Visual Studio Code.\\n\\n"
+                        "Versión: " + detected + "\\n"
+                        "Tipo: " + ("Instalación gestionada por este instalador" if managed_here else "Instalación existente") + "\\n"
+                        "Ubicación: " + location
+                    )
+            else:
+                self.status.config(text="VS Code no detectado en las ubicaciones habituales")
+                self.log("Resultado: no se ha encontrado una instalación ejecutable de VS Code.")
+                if show_result:
+                    messagebox.showwarning(
+                        "VS Code no detectado",
+                        "No se ha encontrado Visual Studio Code en las ubicaciones habituales.\\n\\n"
+                        "Puedes instalarlo con «Instalar / actualizar». Si ya está instalado, "
+                        "comprueba que el ejecutable esté disponible y vuelve a pulsar «Comprobar versión»."
+                    )
+        except Exception as exc:
+            self.status.config(text="No se pudo comprobar la versión de VS Code")
+            self.log("ERROR al comprobar la versión: " + str(exc))
+            if show_result:
+                messagebox.showerror("Error al comprobar versión", str(exc))
 
     def repair(self):
         if not (DEST / "code").exists():
