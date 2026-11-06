@@ -41,7 +41,7 @@ También puedes utilizar **Comprobar versión** o **Reparar acceso**.
 - Extrae el paquete en un directorio temporal y localiza el ejecutable aunque el TAR.GZ incluya un directorio raíz.
 - Muestra el progreso de descarga y extracción, y los pasos de instalación y verificación.
 - Mantiene una copia temporal de la instalación anterior durante la actualización y la restaura si falla la validación o integración.
-- Crea o repara el lanzador de terminal y el acceso al menú de aplicaciones.
+- Crea o repara el lanzador de terminal y el acceso al menú de aplicaciones. La entrada `.desktop` usa rutas absolutas al ejecutable y al icono (los archivos de menú no expanden `$HOME`), tiene permiso de ejecución y se valida; si existe una carpeta Escritorio configurada, crea también allí un acceso directo.
 - Conserva los datos de usuario: configuración, extensiones y proyectos.
 
 ## Rutas de instalación
