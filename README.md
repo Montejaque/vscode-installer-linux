@@ -41,7 +41,7 @@ También puedes utilizar **Comprobar versión** para obtener un aviso visible co
 - Extrae el paquete en un directorio temporal y localiza el ejecutable aunque el TAR.GZ incluya un directorio raíz.
 - Muestra el progreso de descarga y extracción, y los pasos de instalación y verificación.
 - Mantiene una copia temporal de la instalación anterior durante la actualización y la restaura si falla la validación o integración.
-- Crea o repara el lanzador de terminal y el acceso al menú de aplicaciones. Copia el icono PNG de VS Code al tema de iconos `hicolor` del usuario y hace que la entrada `.desktop` use esa ruta absoluta; incluye la categoría `Development` (Programación), palabras clave, permiso de ejecución y validación. Si existe una carpeta Escritorio configurada, crea también allí un acceso directo.
+- Crea o repara el lanzador de terminal y el acceso al menú de aplicaciones. Escribe el archivo `.desktop` tanto en la ruta XDG activa como en `~/.local/share/applications` (evita que un `XDG_DATA_HOME` heredado por AppImage oculte el acceso a Ubuntu). Instala el icono en el tema `hicolor`, declara `Development` (Programación), aplica permisos y valida el archivo. Si existe una carpeta Escritorio configurada, crea también allí un acceso directo.
 - Conserva los datos de usuario: configuración, extensiones y proyectos.
 
 ## Rutas de instalación
@@ -53,7 +53,7 @@ Todo lo que administra el programa queda dentro del perfil del usuario:
 | Aplicación de VS Code | `~/.local/opt/vscode` |
 | Ejecutable principal | `~/.local/opt/vscode/code` |
 | Lanzador de terminal | `~/.local/bin/code` |
-| Acceso al menú | `~/.local/share/applications/visual-studio-code.desktop` |
+| Acceso al menú | `$XDG_DATA_HOME/applications/visual-studio-code.desktop` y `~/.local/share/applications/visual-studio-code.desktop` |
 | Icono local | `~/.local/share/icons/hicolor/256x256/apps/visual-studio-code.png` |
 | PATH del usuario | Entrada en `~/.profile` |
 | Preferencias | `~/.config/Code` |
