@@ -2,37 +2,41 @@
 
 ## Requisitos
 - Linux x86_64.
-- Python 3 y Tkinter.
-- Conexión a Internet para descargar Visual Studio Code estable desde Microsoft.
-- No necesita root ni sudo.
+- Conexión a Internet.
+- Soporte AppImage/FUSE de la distribución.
 
-## Instalación del gestor
-Descarga el ZIP del proyecto, descomprímelo y ejecuta:
+El AppImage incorpora el ejecutable del gestor, Python y Tkinter mediante PyInstaller. No es necesario instalar Python ni Tkinter por separado. No requiere root ni sudo para instalar VS Code en el perfil del usuario.
 
-```bash
-cd vscode-installer-linux
-chmod +x run.sh
-./run.sh
-```
+## Descargar y ejecutar
+1. Descarga `VSCode-Installer-Updater-x86_64.AppImage` desde Releases o desde el artefacto de GitHub Actions.
+2. Abre una terminal en la carpeta donde lo has descargado.
+3. Ejecuta:
+
+    chmod +x VSCode-Installer-Updater-x86_64.AppImage
+    ./VSCode-Installer-Updater-x86_64.AppImage
 
 ## Instalar o actualizar Visual Studio Code
-Pulsa **Instalar / actualizar**. El programa descarga el archivo TAR.GZ oficial de Microsoft y lo instala en `~/.local/opt/vscode`. El lanzador se crea en `~/.local/bin/code` y el acceso de escritorio en `~/.local/share/applications`.
+En la ventana del gestor, pulsa **Instalar / actualizar**. El programa descarga automáticamente la versión estable oficial de Microsoft para Linux x64 en formato TAR.GZ, valida las rutas del archivo y la estructura básica del paquete, y la instala en `~/.local/opt/vscode`.
 
-La configuración y las extensiones del usuario permanecen en sus directorios habituales y no se eliminan durante la actualización.
+El gestor crea:
+- Lanzador: `~/.local/bin/code`.
+- Acceso al menú: `~/.local/share/applications/visual-studio-code.desktop`.
+- Icono local, cuando está disponible en el paquete descargado.
+- Entrada de PATH en `~/.profile` para que el comando `code` esté disponible en nuevas terminales.
 
-## Reparar el acceso
-Si VS Code ya está instalado pero no aparece en el menú, usa **Reparar acceso**.
+No se utiliza sudo. Las preferencias y extensiones existentes se conservan. Durante la actualización se mantiene una copia temporal de recuperación y se restaura la instalación anterior si falla la validación de la nueva.
 
-## Identidad visual
-Negro `#000000` y amarillo `#F3D54E`. Desarrollador: Francisco Javier Gallego Orellana. Centro: Punto Vuela Montejaque.
+## Otras opciones
+- **Comprobar versión:** muestra la versión de VS Code instalada.
+- **Reparar acceso:** vuelve a crear el lanzador y la entrada del menú sin reinstalar VS Code.
 
-## AppImage
-El repositorio contiene el directorio AppDir y el script `build-appimage.sh`. Para construirlo se necesita `appimagetool` y `mksquashfs`. El binario AppImage todavía no está generado. El paquete AppImage previsto ejecutará el gestor y depende de Python/Tkinter disponibles en el sistema.
+## Construcción y publicación
+GitHub Actions compila el gestor mediante PyInstaller y genera el AppImage. Cada push a `main` produce un artefacto descargable. Al publicar una etiqueta `v*`, el workflow crea un GitHub Release con el AppImage adjunto.
 
-## Limitaciones de verificación
-No se ha podido probar una descarga e instalación real de VS Code en este entorno porque no hay conectividad DNS hacia los servidores externos. La descarga tampoco cuenta aún con verificación criptográfica de firma/hash. Antes de usarlo de forma general, validar en un equipo de pruebas.
+## Limitaciones y seguridad
+La compilación del AppImage en Ubuntu 22.04 no sustituye la prueba de ejecución en cada distribución objetivo, especialmente sistemas antiguos. La descarga de VS Code aún no incorpora verificación criptográfica de firma/hash. Se recomienda probar primero en un equipo de pruebas.
 
-## Solución de problemas
-- Si falta Tkinter, el administrador del equipo deberá proporcionar el paquete de Tkinter correspondiente a la distribución.
-- Si el comando `code` no se reconoce en una terminal ya abierta, abre una terminal nueva o ejecuta `export PATH="$HOME/.local/bin:$PATH"`.
-- Para iniciar directamente: `~/.local/bin/code`.
+## Identidad y autoría
+Desarrollador: Francisco Javier Gallego Orellana.  
+Centro: Punto Vuela Montejaque.  
+Colores: negro `#000000` y amarillo `#F3D54E`.
