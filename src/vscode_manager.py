@@ -24,7 +24,7 @@ def read_version(binary):
     try:
         result = subprocess.run([str(binary), "--version"], capture_output=True,
                                 text=True, timeout=20)
-        match = re.search(r"(?m)^\\d+\\.\\d+\\.\\d+", result.stdout)
+        match = re.search(r"(?m)^\d+\.\d+\.\d+", result.stdout)
         return match.group() if match else None
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -85,39 +85,55 @@ def integration():
         with profile.open("a") as file:
             file.write('\n' + marker + '\nexport PATH="$HOME/.local/bin:$PATH"\n')
 
-def install(log):
+def install(log, progress):
     if sys.platform != "linux" or os.uname().machine not in ("x86_64", "amd64"):
         raise RuntimeError("Solo Linux x86_64.")
     DEST.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".vscode-staging-", dir=DEST.parent) as tmp:
         tmp = Path(tmp)
         archive = tmp / "code.tar.gz"
-        log("Descargando VS Code estable desde Microsoft...")
+        log("Conectando con los servidores oficiales de Microsoft...")
         request = urllib.request.Request(URL, headers={"User-Agent": "VSCodeInstaller/1.0"})
-        with urllib.request.urlopen(request, timeout=90) as response, archive.open("wb") as file:
-            shutil.copyfileobj(response, file)
+        with urllib.request.urlopen(request, timeout=90) as response:
+            total = int(response.headers.get("Content-Length") or 0)
+            downloaded = 0
+            progress(2, "Descargando VS Code...")
+            with archive.open("wb") as file:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    file.write(chunk)
+                    downloaded += len(chunk)
+                    if total:
+                        percent = min(55, 2 + int(downloaded * 53 / total))
+                        progress(percent, f"Descargando VS Code... {downloaded / 1048576:.1f} / {total / 1048576:.1f} MB")
+                    else:
+                        progress(2, f"Descargando VS Code... {downloaded / 1048576:.1f} MB")
         if archive.stat().st_size < 50_000_000:
             raise RuntimeError("Descarga incompleta o inesperadamente pequeña.")
         extracted = tmp / "extracted"
         extracted.mkdir()
         log("Validando y extrayendo el paquete...")
+        progress(58, "Leyendo el paquete descargado...")
         with tarfile.open(archive, "r:gz") as tar:
             members = tar.getmembers()
             if not members:
                 raise RuntimeError("Archivo vacío.")
-            # Rechazar rutas absolutas, escapes y entradas especiales.
             for member in members:
                 parts = Path(member.name).parts
                 if member.name.startswith("/") or ".." in parts or member.isdev():
                     raise RuntimeError("Ruta peligrosa en el archivo.")
                 if member.issym() or member.islnk():
-                    # Los paquetes de Electron pueden contener enlaces simbólicos.
-                    # No se extraen enlaces hasta verificar sus destinos.
                     from pathlib import PurePosixPath
                     target = PurePosixPath(member.linkname)
                     if target.is_absolute() or ".." in target.parts:
                         raise RuntimeError("Enlace no seguro en el archivo.")
-            tar.extractall(extracted, members=members)
+            count = len(members)
+            for index, member in enumerate(members, 1):
+                tar.extract(member, extracted)
+                if index == count or index % max(1, count // 100) == 0:
+                    progress(58 + int(index * 27 / count), f"Extrayendo archivos... {index * 100 // count}%")
         candidates = [p for p in extracted.iterdir() if p.is_dir() and (p / "code").is_file()]
         if not candidates:
             raise RuntimeError("No se encontró el ejecutable de VS Code.")
@@ -129,11 +145,13 @@ def install(log):
         if backup.exists():
             shutil.rmtree(backup)
         had_old = DEST.exists()
-        log("Aplicando actualización con copia de recuperación...")
+        log("Aplicando instalación / actualización...")
+        progress(88, "Instalando archivos y preparando accesos...")
         try:
             if had_old:
                 os.replace(DEST, backup)
             os.replace(candidate, DEST)
+            progress(94, "Verificando la versión instalada...")
             if not version():
                 raise RuntimeError("La nueva instalación no supera la comprobación de versión.")
             integration()
@@ -146,13 +164,14 @@ def install(log):
             raise
         if backup.exists():
             shutil.rmtree(backup)
+        progress(100, "Proceso completado.")
         log("VS Code " + (version() or "") + " instalado. Preferencias y extensiones conservadas.")
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("VS Code Installer & Updater — Punto Vuela Montejaque")
-        self.geometry("850x560")
+        self.geometry("900x680")
         self.configure(bg="white")
         self.busy = False
         style = ttk.Style(self)
@@ -180,15 +199,64 @@ class App(tk.Tk):
             button = ttk.Button(bar, text=label, command=action)
             button.pack(side="left", padx=(0, 12))
             self.buttons.append(button)
-        self.log_area = tk.Text(frame, height=16, bg="#F7F7F7", fg="#000000")
+        self.progress_text = tk.Label(frame, text="Preparado", bg="white", fg="#333333")
+        self.progress_text.pack(anchor="w", pady=(4, 2))
+        self.progress = ttk.Progressbar(frame, orient="horizontal", mode="determinate", maximum=100)
+        self.progress.pack(fill="x", pady=(0, 8))
+        self.log_area = tk.Text(frame, height=12, bg="#F7F7F7", fg="#000000")
         self.log_area.pack(fill="both", expand=True)
-        tk.Label(frame, text="Desarrollador: Francisco Javier Gallego Orellana",
-                 bg="white", fg="#333333").pack(anchor="w", pady=(12, 0))
+        footer = tk.Frame(frame, bg="white")
+        footer.pack(fill="x", pady=(10, 0))
+        tk.Label(footer, text="Desarrollador: Francisco Javier Gallego Orellana",
+                 bg="white", fg="#000000", font=("Inter", 10, "bold")).pack(anchor="w")
+        tk.Label(footer, text="Punto Vuela Montejaque · Avenida Andalucía, 48 · 29360 Montejaque (Málaga)",
+                 bg="white", fg="#333333").pack(anchor="w")
+        tk.Label(footer, text="Teléfono: 633 402 959 · Correo: montejaque@puntosvuela.es",
+                 bg="white", fg="#333333").pack(anchor="w")
+        ttk.Button(footer, text="Ver guía de uso", command=self.show_guide).pack(anchor="e", pady=(5, 0))
         self.refresh()
 
     def log(self, msg):
         self.after(0, lambda: (self.log_area.insert("end", msg + "\n"),
                                self.log_area.see("end")))
+
+    def set_progress(self, value, message):
+        def update():
+            self.progress["value"] = value
+            self.progress_text.config(text=f"{message}  ({value}%)")
+        self.after(0, update)
+
+    def show_guide(self):
+        window = tk.Toplevel(self)
+        window.title("Guía de uso — VS Code Installer & Updater")
+        window.geometry("700x560")
+        window.configure(bg="white")
+        area = tk.Text(window, wrap="word", padx=18, pady=18, bg="#FAFAFA",
+                       fg="#111111", font=("Inter", 10))
+        area.pack(fill="both", expand=True, padx=12, pady=12)
+        guide = """GUÍA DE USO
+
+1. INSTALAR / ACTUALIZAR
+Pulsa «Instalar / actualizar». Se descarga la versión estable oficial desde Microsoft. La barra muestra el progreso de descarga, extracción, instalación y verificación. No necesita sudo.
+
+2. COMPROBAR VERSIÓN
+Pulsa «Comprobar versión» para detectar la versión instalada en las ubicaciones habituales de Linux.
+
+3. UBICACIÓN
+La copia administrada por este programa se instala en ~/.local/opt/vscode. El lanzador se crea en ~/.local/bin/code y aparece en el menú de aplicaciones.
+
+4. DATOS Y CONFIGURACIÓN
+Las preferencias y extensiones existentes se conservan durante las actualizaciones.
+
+5. CONTACTO
+Desarrollador: Francisco Javier Gallego Orellana
+Centro: Punto Vuela Montejaque
+Dirección: Avenida Andalucía, 48, 29360 Montejaque (Málaga)
+Teléfono: 633 402 959
+Correo: montejaque@puntosvuela.es
+"""
+        area.insert("1.0", guide)
+        area.config(state="disabled")
 
     def refresh(self):
         detected, location = detect_installed()
@@ -216,7 +284,8 @@ class App(tk.Tk):
             button.config(state="disabled")
         def work():
             try:
-                install(self.log)
+                self.set_progress(0, "Iniciando...")
+                install(self.log, self.set_progress)
                 self.after(0, self.refresh)
                 self.after(0, lambda: messagebox.showinfo("Listo", "VS Code instalado o actualizado."))
             except Exception as exc:
