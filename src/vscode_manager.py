@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """VS Code Installer & Updater: instalación de usuario, sin sudo."""
 import os
+import json
 import re
 import shutil
 import subprocess
@@ -29,10 +30,25 @@ def read_version(binary):
     except (OSError, subprocess.TimeoutExpired):
         return None
 
+def version_at(directory):
+    """Lee la versión del manifiesto; no ejecuta el binario ni necesita root."""
+    manifests = [
+        directory / "resources" / "app" / "package.json",
+        directory / "resources" / "app" / "product.json",
+    ]
+    for manifest in manifests:
+        try:
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+            value = data.get("version") or data.get("productVersion")
+            if value and re.match(r"^\d+\.\d+\.\d+", str(value)):
+                return str(value)
+        except (OSError, ValueError, TypeError):
+            continue
+    return None
+
 def version():
-    """Versión de la copia administrada por esta aplicación."""
-    binary = DEST / "code"
-    return read_version(binary) if binary.is_file() else None
+    """Versión de la copia gestionada por esta aplicación."""
+    return version_at(DEST) if (DEST / "code").is_file() else None
 
 def detect_installed():
     """Detecta VS Code instalado por apt, snap, manualmente o por esta app."""
@@ -57,7 +73,9 @@ def detect_installed():
         if str(resolved) in seen or not resolved.is_file():
             continue
         seen.add(str(resolved))
-        detected = read_version(resolved)
+        detected = version_at(resolved.parent)
+        if not detected:
+            detected = read_version(resolved)
         if detected:
             return detected, str(binary)
     return None, None
@@ -134,13 +152,17 @@ def install(log, progress):
                 tar.extract(member, extracted)
                 if index == count or index % max(1, count // 100) == 0:
                     progress(58 + int(index * 27 / count), f"Extrayendo archivos... {index * 100 // count}%")
-        candidates = [p for p in extracted.iterdir() if p.is_dir() and (p / "code").is_file()]
-        if not candidates:
-            raise RuntimeError("No se encontró el ejecutable de VS Code.")
-        candidate = candidates[0]
-        if not (candidate / "resources/app/package.json").is_file():
-            raise RuntimeError("Paquete de VS Code inválido.")
+        # No depender del nombre ni de la profundidad del directorio raíz del TAR.
+        executables = [p for p in extracted.rglob("code")
+                       if p.is_file() and (p.parent / "resources" / "app" / "package.json").is_file()]
+        if not executables:
+            raise RuntimeError("No se encontró la estructura oficial de VS Code (code y resources/app/package.json).")
+        candidate = executables[0].parent
+        package_version = version_at(candidate)
+        if not package_version:
+            raise RuntimeError("El paquete descargado no contiene una versión válida en package.json.")
         (candidate / "code").chmod((candidate / "code").stat().st_mode | 0o111)
+        log("Paquete de Microsoft validado: versión " + package_version)
         backup = DEST.parent / "vscode.previous"
         if backup.exists():
             shutil.rmtree(backup)
@@ -152,8 +174,10 @@ def install(log, progress):
                 os.replace(DEST, backup)
             os.replace(candidate, DEST)
             progress(94, "Verificando la versión instalada...")
-            if not version():
-                raise RuntimeError("La nueva instalación no supera la comprobación de versión.")
+            installed_version = version()
+            if not installed_version:
+                raise RuntimeError("No se puede leer la versión desde resources/app/package.json tras instalar.")
+            log("Versión instalada verificada: " + installed_version)
             integration()
         except Exception:
             if DEST.exists():
