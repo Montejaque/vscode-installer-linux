@@ -31,7 +31,7 @@ Descarga `VSCode-Installer-Updater-x86_64.AppImage`. El AppImage es el administr
 4. En la ventana, pulsa **Instalar / actualizar**.
 5. Espera a que finalicen la descarga, extracción, instalación y comprobación de versión.
 
-También puedes utilizar **Comprobar versión** o **Reparar acceso**. El botón **Desinstalar y eliminar datos** permite retirar la instalación gestionada y sus datos de usuario tras mostrar una confirmación detallada.
+También puedes utilizar **Comprobar versión** para obtener un aviso visible con la versión y la ruta detectadas (o un aviso si no encuentra VS Code), o **Reparar acceso**. El botón **Desinstalar y eliminar datos** permite retirar la instalación gestionada y sus datos de usuario tras mostrar una confirmación detallada.
 
 ## Qué hace el programa
 
