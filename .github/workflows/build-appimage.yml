@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: "Versión a publicar (por ejemplo, v1.0.0)"
+        description: "Versión a publicar (por ejemplo, v1.0.1)"
         required: true
-        default: "v1.0.0"
+        default: "v1.0.1"
         type: string
   push:
     branches: [main]
@@ -26,17 +26,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install build dependencies
+      - name: Build executable against Ubuntu 20.04 libraries
         run: |
-          sudo apt-get update
-          sudo apt-get install -y python3 python3-tk python3-venv python3-pip squashfs-tools file desktop-file-utils
-
-      - name: Build standalone GUI executable
-        run: |
-          python3 -m pip install --user --upgrade pyinstaller
-          python3 -m PyInstaller --noconfirm --clean --onefile --windowed --name vscode-installer-updater src/vscode_manager.py
-          test -s dist/vscode-installer-updater
-          file dist/vscode-installer-updater
+          docker run --rm -v "$PWD:/work" -w /work ubuntu:20.04 bash -lc '
+            set -eux
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update
+            apt-get install -y python3 python3-pip python3-tk python3-dev build-essential
+            python3 -m pip install --user --upgrade "pip<22" "pyinstaller==6.19.0"
+            export PATH="$HOME/.local/bin:$PATH"
+            python3 -m PyInstaller --noconfirm --clean --onefile --name vscode-installer-updater src/vscode_manager.py
+            test -s dist/vscode-installer-updater
+            ldd --version | head -n 1
+            file dist/vscode-installer-updater
+          '
 
       - name: Prepare AppDir
         run: |
@@ -45,6 +48,8 @@ jobs:
           install -m 0755 dist/vscode-installer-updater AppDir/usr/bin/vscode-installer-updater
           test -f AppDir/vscode-installer-updater.desktop
           test -f AppDir/vscode-installer-updater.svg
+          sudo apt-get update
+          sudo apt-get install -y squashfs-tools file desktop-file-utils
           desktop-file-validate AppDir/vscode-installer-updater.desktop
 
       - name: Download appimagetool
@@ -64,8 +69,11 @@ jobs:
 
       - name: Smoke test bundled executable
         run: |
-          ./dist/vscode-installer-updater --help || true
-          test -x dist/VSCode-Installer-Updater-x86_64.AppImage
+          docker run --rm -v "$PWD:/work" -w /work ubuntu:20.04 bash -lc '
+            set -eux
+            ./dist/vscode-installer-updater --version || true
+            test -x dist/VSCode-Installer-Updater-x86_64.AppImage
+          '
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
@@ -76,11 +84,11 @@ jobs:
           retention-days: 30
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]'))
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.release_version || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.0.0' }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.release_version || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.0.1' }}
           target_commitish: main
-          name: VS Code Installer Updater ${{ github.event_name == 'workflow_dispatch' && inputs.release_version || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.0.0' }}
+          name: VS Code Installer Updater ${{ github.event_name == 'workflow_dispatch' && inputs.release_version || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.0.1' }}
           generate_release_notes: true
           files: dist/VSCode-Installer-Updater-x86_64.AppImage
