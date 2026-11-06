@@ -1,3 +1,8 @@
 #!/bin/sh
 HERE="$(dirname "$(readlink -f "$0")")"
-exec python3 "$HERE/usr/share/vscode-installer-updater/src/vscode_manager.py" "$@"
+APP="$HERE/usr/bin/vscode-installer-updater"
+if [ ! -x "$APP" ]; then
+  echo "No se encuentra el gestor incluido en este AppImage." >&2
+  exit 1
+fi
+exec "$APP" "$@"
