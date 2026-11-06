@@ -93,7 +93,7 @@ Comprueba que tiene permiso de ejecución y que el sistema admite AppImage/FUSE.
 Abre una terminal nueva o ejecuta `source ~/.profile`. Comprueba que existe `~/.local/bin/code` y que `~/.local/bin` está incluido en PATH.
 
 ### El acceso del menú no aparece
-Abre el gestor y pulsa **Reparar acceso**. Comprueba que la instalación administrada existe en `~/.local/opt/vscode`.
+Abre el gestor y pulsa **Reparar acceso**. Esta opción vuelve a generar el lanzador y el archivo `.desktop` usando la ruta absoluta del ejecutable y del icono, marca el acceso como ejecutable y valida su contenido. Comprueba que la instalación administrada existe en `~/.local/opt/vscode`.
 
 ### La instalación o actualización falla
 Consulta el registro que aparece en la ventana del gestor. El programa valida que el paquete contenga el ejecutable y los metadatos esperados. Si falla una actualización después de apartar la instalación anterior, intenta restaurarla automáticamente. Comprueba también la conexión a Internet y el espacio libre del perfil de usuario.
