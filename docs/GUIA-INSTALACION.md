@@ -147,3 +147,8 @@ Al instalar o pulsar «Reparar acceso», el gestor copia el icono PNG incluido e
 ## Comprobar versión
 
 El botón «Comprobar versión» busca VS Code en la instalación gestionada por el programa y en las ubicaciones habituales de Linux. Muestra un aviso con el número de versión y la ruta del ejecutable encontrado; si no encuentra ninguna instalación, informa de ello y permite continuar con «Instalar / actualizar». Durante la comprobación también deja el resultado en el registro de la ventana.
+
+
+### Compatibilidad con carpetas XDG personalizadas
+
+El acceso se instala en `$XDG_DATA_HOME/applications` cuando esa variable está definida con una ruta absoluta. Si no está definida, se utiliza `~/.local/share/applications`. El icono se instala bajo el directorio XDG correspondiente. Esto evita crear el archivo en una carpeta que el escritorio no está indexando.
