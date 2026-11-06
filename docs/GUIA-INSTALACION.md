@@ -137,3 +137,8 @@ Consulta [las versiones publicadas](https://github.com/Montejaque/vscode-install
 **Correo:** montejaque@puntosvuela.es
 
 Identidad visual: negro `#000000` y amarillo `#F3D54E`.
+
+
+## Icono en el menú de Programación
+
+Al instalar o pulsar «Reparar acceso», el gestor copia el icono PNG incluido en el paquete de VS Code a `~/.local/share/icons/hicolor/256x256/apps/visual-studio-code.png`. La entrada del menú utiliza esa ruta absoluta y declara la categoría `Development` (Programación). Después actualiza, cuando están disponibles, las cachés de aplicaciones e iconos del usuario. No requiere permisos de administrador.
