@@ -114,7 +114,7 @@ def integration():
 
     BIN.parent.mkdir(parents=True, exist_ok=True)
     MENU.parent.mkdir(parents=True, exist_ok=True)
-    launcher = '#!/bin/sh\\nexec "$HOME/.local/opt/vscode/code" "$@"\\n'
+    launcher = '#!/bin/sh\nexec "$HOME/.local/opt/vscode/code" "$@"\n'
     _atomic_write(BIN, launcher, 0o755)
     if not os.access(BIN, os.X_OK):
         raise RuntimeError("No se ha podido crear el lanzador ejecutable ~/.local/bin/code.")
@@ -130,18 +130,18 @@ def integration():
         icon_name = str(target)
 
     desktop_entry = (
-        "[Desktop Entry]\\n"
-        "Version=1.0\\n"
-        "Type=Application\\n"
-        "Name=Visual Studio Code\\n"
-        "Comment=Editor de código\\n"
-        'Exec="' + str(BIN) + '" --new-window %F\\n'
-        'TryExec="' + str(BIN) + '"\\n'
-        "Icon=" + icon_name + "\\n"
-        "Terminal=false\\n"
-        "Categories=Development;IDE;TextEditor;\\n"
-        "StartupNotify=true\\n"
-        "StartupWMClass=code\\n"
+        "[Desktop Entry]\n"
+        "Version=1.0\n"
+        "Type=Application\n"
+        "Name=Visual Studio Code\n"
+        "Comment=Editor de código\n"
+        'Exec="' + str(BIN) + '" --new-window %F\n'
+        'TryExec="' + str(BIN) + '"\n'
+        "Icon=" + icon_name + "\n"
+        "Terminal=false\n"
+        "Categories=Development;IDE;TextEditor;\n"
+        "StartupNotify=true\n"
+        "StartupWMClass=code\n"
     )
     _atomic_write(MENU, desktop_entry)
     if not MENU.is_file() or str(BIN) not in MENU.read_text(encoding="utf-8"):
@@ -152,7 +152,7 @@ def integration():
     content = profile.read_text(encoding="utf-8") if profile.exists() else ""
     if marker not in content:
         with profile.open("a", encoding="utf-8") as file:
-            file.write('\\n' + marker + '\\nexport PATH="$HOME/.local/bin:$PATH"\\n')
+            file.write('\n' + marker + '\nexport PATH="$HOME/.local/bin:$PATH"\n')
 
 def install(log, progress):
     if sys.platform != "linux" or os.uname().machine not in ("x86_64", "amd64"):
